@@ -10,8 +10,6 @@ class Settings(BaseSettings):
     gigachat_scope: str = "GIGACHAT_API_PERS"
 
     # Сервис
-    service_host: str = "0.0.0.0"
-    service_port: int = 8000
     service_api_key: str = "change_me"
 
     # Пути
