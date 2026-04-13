@@ -1,7 +1,13 @@
+import logging
 from gigachat import GigaChat
 from gigachat.models import Chat, Messages, MessagesRole
 from app.core.config import settings
+from app.models.schemas import BaseCredentials
+from app.tools.definitions import ALL_TOOLS
+from app.tools.executor import dispatch
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _load_prompt(prompt_file: str) -> str:
@@ -40,18 +46,70 @@ def generate_report(raw_data: str, report_type: str) -> str:
     return response.choices[0].message.content
 
 
-def answer_prompt(user_prompt: str) -> str:
+def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     """
-    Отправляет произвольный текстовый промпт в GigaChat и возвращает ответ.
+    Отправляет произвольный запрос в GigaChat с доступом к инструментам 1С.
+
+    Агентный цикл:
+    1. Отправляем запрос + описание инструментов
+    2. Если GigaChat вызывает инструмент — выполняем и возвращаем результат
+    3. Повторяем до финального ответа или достижения лимита итераций
     """
     system_prompt = _load_prompt("chat.txt")
 
-    messages = []
+    messages: list[Messages] = []
     if system_prompt:
         messages.append(Messages(role=MessagesRole.SYSTEM, content=system_prompt))
     messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
 
     with _get_client() as client:
-        response = client.chat(Chat(messages=messages))
+        for iteration in range(settings.max_tool_iterations):
+            response = client.chat(
+                Chat(messages=messages, functions=ALL_TOOLS, function_call="auto")
+            )
 
-    return response.choices[0].message.content
+            choice = response.choices[0]
+            finish_reason = choice.finish_reason
+            assistant_message = choice.message
+
+            # Добавляем ответ ассистента в историю
+            messages.append(
+                Messages(
+                    role=MessagesRole.ASSISTANT,
+                    content=assistant_message.content or "",
+                    function_call=assistant_message.function_call,
+                )
+            )
+
+            if finish_reason == "stop":
+                # Финальный текстовый ответ
+                return assistant_message.content
+
+            if finish_reason == "function_call":
+                tool_call = assistant_message.function_call
+                tool_name = tool_call.name
+                arguments = tool_call.arguments or {}
+
+                logger.info(
+                    f"GigaChat вызвал инструмент '{tool_name}' "
+                    f"(итерация {iteration + 1}/{settings.max_tool_iterations})"
+                )
+
+                result = dispatch(tool_name, arguments, credentials)
+
+                # Возвращаем результат инструмента в диалог
+                messages.append(
+                    Messages(
+                        role=MessagesRole.FUNCTION,
+                        name=tool_name,
+                        content=result,
+                    )
+                )
+                continue
+
+            # Неожиданный finish_reason — возвращаем что есть
+            logger.warning(f"Неожиданный finish_reason: {finish_reason!r}")
+            return assistant_message.content or ""
+
+    logger.warning("Достигнут лимит итераций инструментов, возвращаем последний ответ")
+    return messages[-1].content or "Не удалось сформировать ответ"

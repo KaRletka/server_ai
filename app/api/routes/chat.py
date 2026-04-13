@@ -17,7 +17,7 @@ def chat(req: ChatRequest) -> ChatResponse:
     if not base_info:
         raise HTTPException(status_code=401, detail="Неверные учётные данные базы")
 
-    answer = ai_service.answer_prompt(req.prompt)
+    answer = ai_service.answer_prompt(req.prompt, req.credentials)
 
     logger.info(f"[{base_info.base_id}] Ответ на промпт сформирован")
 

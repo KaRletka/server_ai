@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Сервис
     service_api_key: str = "change_me"
 
+    # Агентный цикл
+    max_tool_iterations: int = 5
+
     # Пути
     data_dir: Path = Path("data/connected_bases")
     logs_dir: Path = Path("logs")
