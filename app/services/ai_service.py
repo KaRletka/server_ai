@@ -19,6 +19,28 @@ def _load_prompt(prompt_file: str) -> str:
         return f.read()
 
 
+def _load_knowledge_base() -> str:
+    """Загружает базу знаний из файла. Возвращает пустую строку если файл не найден."""
+    path = settings.knowledge_base_file
+    if not path.exists():
+        return ""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+
+def _build_system_prompt(base_prompt: str) -> str:
+    """Формирует итоговый системный промпт с базой знаний."""
+    knowledge_base = _load_knowledge_base()
+    if not knowledge_base:
+        return base_prompt
+    return (
+        f"{base_prompt}\n\n"
+        f"=== БАЗА ЗНАНИЙ ===\n"
+        f"{knowledge_base}\n"
+        f"==================="
+    )
+
+
 def _get_client() -> GigaChat:
     return GigaChat(
         credentials=settings.gigachat_credentials,
@@ -55,7 +77,7 @@ def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     2. Если GigaChat вызывает инструмент — выполняем и возвращаем результат
     3. Повторяем до финального ответа или достижения лимита итераций
     """
-    system_prompt = _load_prompt("chat.txt")
+    system_prompt = _build_system_prompt(_load_prompt("chat.txt"))
 
     messages: list[Messages] = []
     if system_prompt:

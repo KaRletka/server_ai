@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     # Пути
     data_dir: Path = Path("data/connected_bases")
     logs_dir: Path = Path("logs")
+    knowledge_base_file: Path = Path("knowledge_base.txt")
 
 
 settings = Settings()
