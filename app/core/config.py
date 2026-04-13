@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     # Пути
     data_dir: Path = Path("data/connected_bases")
     logs_dir: Path = Path("logs")
-    registry_file: Path = Path("bases_registry.json")
 
 
 settings = Settings()

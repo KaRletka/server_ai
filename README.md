@@ -13,7 +13,7 @@ cp .env.example .env
 # Заполнить GIGACHAT_CREDENTIALS и SERVICE_API_KEY
 
 # 3. Запустить сервис
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8888 --reload
 ```
 
 ## Документация API

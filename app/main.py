@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from app.api.routes import reports, chat, bases, query
+from app.api.routes import reports, chat, query
 from app.core.scheduler import start_scheduler
 from app.core.config import settings
 
@@ -34,10 +34,13 @@ app = FastAPI(
 
 app.include_router(reports.router)
 app.include_router(chat.router)
-app.include_router(bases.router)
 app.include_router(query.router)
 
 
 @app.get("/health", tags=["system"])
 def health() -> dict:
     return {"status": "ok"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8888, reload=True)
