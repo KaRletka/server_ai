@@ -5,9 +5,9 @@ from pathlib import Path
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
-    # GigaChat
-    gigachat_credentials: str
-    gigachat_scope: str = "GIGACHAT_API_PERS"
+    # OpenAI
+    openai_api_key: str
+    openai_model: str = "gpt-4o"
 
     # Сервис
     service_api_key: str = "change_me"

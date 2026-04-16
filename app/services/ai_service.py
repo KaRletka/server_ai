@@ -1,6 +1,6 @@
+import json
 import logging
-from gigachat import GigaChat
-from gigachat.models import Chat, Messages, MessagesRole
+from openai import OpenAI
 from app.core.config import settings
 from app.models.schemas import BaseCredentials
 from app.tools.definitions import ALL_TOOLS
@@ -41,97 +41,100 @@ def _build_system_prompt(base_prompt: str) -> str:
     )
 
 
-def _get_client() -> GigaChat:
-    return GigaChat(
-        credentials=settings.gigachat_credentials,
-        scope=settings.gigachat_scope,
-        verify_ssl_certs=False,
-    )
+def _get_client() -> OpenAI:
+    return OpenAI(api_key=settings.openai_api_key)
 
 
 def generate_report(raw_data: str, report_type: str) -> str:
     """
-    Отправляет сырые данные из 1С в GigaChat и возвращает готовый отчёт.
+    Отправляет сырые данные из 1С в OpenAI и возвращает готовый отчёт.
 
     report_type: daily | weekly | monthly | quarterly
     """
     system_prompt = _load_prompt(f"{report_type}_report.txt")
 
-    messages = []
+    messages: list[dict] = []
     if system_prompt:
-        messages.append(Messages(role=MessagesRole.SYSTEM, content=system_prompt))
-    messages.append(Messages(role=MessagesRole.USER, content=raw_data))
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": raw_data})
 
-    with _get_client() as client:
-        response = client.chat(Chat(messages=messages))
-
+    client = _get_client()
+    response = client.chat.completions.create(
+        model=settings.openai_model,
+        messages=messages,
+    )
     return response.choices[0].message.content
 
 
 def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     """
-    Отправляет произвольный запрос в GigaChat с доступом к инструментам 1С.
+    Отправляет произвольный запрос в OpenAI с доступом к инструментам 1С.
 
     Агентный цикл:
     1. Отправляем запрос + описание инструментов
-    2. Если GigaChat вызывает инструмент — выполняем и возвращаем результат
+    2. Если OpenAI вызывает инструменты — выполняем все и возвращаем результаты
     3. Повторяем до финального ответа или достижения лимита итераций
     """
     system_prompt = _build_system_prompt(_load_prompt("chat.txt"))
+    client = _get_client()
 
-    messages: list[Messages] = []
+    messages: list[dict] = []
     if system_prompt:
-        messages.append(Messages(role=MessagesRole.SYSTEM, content=system_prompt))
-    messages.append(Messages(role=MessagesRole.USER, content=user_prompt))
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": user_prompt})
 
-    with _get_client() as client:
-        for iteration in range(settings.max_tool_iterations):
-            response = client.chat(
-                Chat(messages=messages, functions=ALL_TOOLS, function_call="auto")
-            )
+    for iteration in range(settings.max_tool_iterations):
+        response = client.chat.completions.create(
+            model=settings.openai_model,
+            messages=messages,
+            tools=ALL_TOOLS,
+            tool_choice="auto",
+        )
 
-            choice = response.choices[0]
-            finish_reason = choice.finish_reason
-            assistant_message = choice.message
+        choice = response.choices[0]
+        finish_reason = choice.finish_reason
+        assistant_message = choice.message
 
-            # Добавляем ответ ассистента в историю
-            messages.append(
-                Messages(
-                    role=MessagesRole.ASSISTANT,
-                    content=assistant_message.content or "",
-                    function_call=assistant_message.function_call,
-                )
-            )
+        # Добавляем ответ ассистента в историю
+        messages.append(assistant_message.model_dump(exclude_unset=False, exclude_none=True))
 
-            if finish_reason == "stop":
-                # Финальный текстовый ответ
-                return assistant_message.content
+        if finish_reason == "stop":
+            return assistant_message.content or ""
 
-            if finish_reason == "function_call":
-                tool_call = assistant_message.function_call
-                tool_name = tool_call.name
-                arguments = tool_call.arguments or {}
+        if finish_reason == "tool_calls":
+            # OpenAI может вернуть несколько вызовов за раз — обрабатываем все
+            for tool_call in assistant_message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_call_id = tool_call.id
+
+                try:
+                    arguments = json.loads(tool_call.function.arguments)
+                except json.JSONDecodeError:
+                    arguments = {}
 
                 logger.info(
-                    f"GigaChat вызвал инструмент '{tool_name}' "
+                    f"OpenAI вызвал инструмент '{tool_name}' "
                     f"(итерация {iteration + 1}/{settings.max_tool_iterations})"
                 )
 
                 result = dispatch(tool_name, arguments, credentials)
 
-                # Возвращаем результат инструмента в диалог
-                messages.append(
-                    Messages(
-                        role=MessagesRole.FUNCTION,
-                        name=tool_name,
-                        content=result,
-                    )
-                )
-                continue
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": result,
+                })
+            continue
 
-            # Неожиданный finish_reason — возвращаем что есть
-            logger.warning(f"Неожиданный finish_reason: {finish_reason!r}")
-            return assistant_message.content or ""
+        # Неожиданный finish_reason — возвращаем что есть
+        logger.warning(f"Неожиданный finish_reason: {finish_reason!r}")
+        return assistant_message.content or ""
 
     logger.warning("Достигнут лимит итераций инструментов, возвращаем последний ответ")
-    return messages[-1].content or "Не удалось сформировать ответ"
+    last_assistant = next(
+        (m for m in reversed(messages) if isinstance(m, dict) and m.get("role") == "assistant"),
+        None,
+    )
+    if last_assistant:
+        return last_assistant.get("content") or ""
+    return "Не удалось сформировать ответ"

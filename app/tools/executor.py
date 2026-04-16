@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 def dispatch(tool_name: str, arguments: dict, credentials: BaseCredentials) -> str:
     """
     Выполняет инструмент по имени и возвращает результат в виде строки.
-    Вызывается когда GigaChat возвращает finish_reason='function_call'.
+    Вызывается когда OpenAI возвращает finish_reason='tool_calls'.
 
-    Возвращает строку — она вставляется в диалог как сообщение role=FUNCTION.
+    Возвращает строку — она вставляется в диалог как сообщение role=tool.
     """
     if tool_name == "execute_1c_query":
         return _execute_1c_query(arguments, credentials)
