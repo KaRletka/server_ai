@@ -1,5 +1,7 @@
 # Окружение
 .env
+.env.test
+tests/.env.test
 .venv/
 venv/
 __pycache__/
