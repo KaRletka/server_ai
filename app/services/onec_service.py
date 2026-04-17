@@ -1,3 +1,4 @@
+import http.client
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -48,3 +49,5 @@ def execute_query(credentials: BaseCredentials, query_text: str) -> dict:
         raise RuntimeError(f"1С вернула HTTP {e.code}: {e.reason}")
     except urllib.error.URLError as e:
         raise RuntimeError(f"Не удалось подключиться к базе 1С: {e.reason}")
+    except (http.client.RemoteDisconnected, ConnectionError) as e:
+        raise RuntimeError(f"Не удалось подключиться к базе 1С: {e}")

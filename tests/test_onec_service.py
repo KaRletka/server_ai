@@ -11,6 +11,7 @@ def test_execute_query_success(onec_credentials: BaseCredentials):
     """Простой SELECT-запрос возвращает непустой результат."""
     query = "ВЫБРАТЬ ПЕРВЫЕ 5 Наименование ИЗ Справочник.Номенклатура"
     result = execute_query(onec_credentials, query)
+    print(f"\n[Результат]\n{result}")
 
     assert result is not None, "Ответ не должен быть None"
     assert isinstance(result, (dict, list)), f"Ожидался dict или list, получено: {type(result)}"
@@ -20,6 +21,7 @@ def test_execute_query_returns_counterparties(onec_credentials: BaseCredentials)
     """Запрос контрагентов возвращает список."""
     query = "ВЫБРАТЬ ПЕРВЫЕ 5 Наименование ИЗ Справочник.Контрагенты"
     result = execute_query(onec_credentials, query)
+    print(f"\n[Результат]\n{result}")
 
     assert result is not None
 

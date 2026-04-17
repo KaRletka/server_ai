@@ -13,6 +13,7 @@ class TestAnswerPromptSimple:
     def test_returns_string(self, onec_credentials: BaseCredentials):
         """answer_prompt возвращает непустую строку."""
         result = answer_prompt("Привет! Что ты умеешь?", onec_credentials)
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -23,6 +24,7 @@ class TestAnswerPromptSimple:
             "Как работает система УНФ? Ответь кратко, без обращения к базе.",
             onec_credentials,
         )
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -37,6 +39,7 @@ class TestAnswerPromptWithTool:
             "Покажи остатки товаров на складе. Выведи первые 5 позиций.",
             onec_credentials,
         )
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -47,6 +50,7 @@ class TestAnswerPromptWithTool:
             "Какие были продажи за последний месяц? Покажи топ-3 позиции.",
             onec_credentials,
         )
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -57,6 +61,7 @@ class TestAnswerPromptWithTool:
             "Есть ли у нас дебиторская задолженность? Назови контрагентов с долгами.",
             onec_credentials,
         )
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -67,6 +72,7 @@ class TestAnswerPromptWithTool:
             "Покажи продажи за 1990 год.",
             onec_credentials,
         )
+        print(f"\n[Ответ]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -82,6 +88,7 @@ class TestGenerateReport:
             "Товар Б — 5 шт. на 2500 руб. Итого: 7500 руб."
         )
         result = generate_report(raw_data, "daily")
+        print(f"\n[Отчёт]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
@@ -89,6 +96,7 @@ class TestGenerateReport:
     def test_generate_report_with_empty_data(self, onec_credentials: BaseCredentials):
         """Генерация отчёта с минимальными данными не вызывает исключений."""
         result = generate_report("Данных за период нет.", "daily")
+        print(f"\n[Отчёт]\n{result}")
 
         assert isinstance(result, str)
         assert len(result) > 0
