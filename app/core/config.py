@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
     openai_model: str = "gpt-4o"
+    openai_assistant_id: str = ""
+    openai_vector_store_id: str = ""
 
     # Сервис
     service_api_key: str = "change_me"
