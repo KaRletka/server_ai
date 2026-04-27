@@ -86,7 +86,7 @@ def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     run = client.beta.threads.runs.create_and_poll(
         thread_id=thread.id,
         assistant_id=settings.openai_assistant_id,
-        additional_instructions=_build_system_prompt(_load_prompt("chat.txt")),
+        additional_instructions=_load_prompt("chat.txt"),
     )
 
     while run.status == "requires_action":
@@ -109,8 +109,8 @@ def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
         )
 
     if run.status != "completed":
-        logger.error(f"Run завершился со статусом: {run.status}")
-        raise RuntimeError(f"Run finished with status: {run.status}")
+        logger.error(f"Run завершился со статусом: {run.status}, ошибка: {run.last_error}")
+        raise RuntimeError(f"Run failed: {run.status} — {run.last_error}")
 
     messages = client.beta.threads.messages.list(thread_id=thread.id, order="desc", limit=1)
     return messages.data[0].content[0].text.value
