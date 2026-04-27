@@ -86,6 +86,7 @@ def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     run = client.beta.threads.runs.create_and_poll(
         thread_id=thread.id,
         assistant_id=settings.openai_assistant_id,
+        additional_instructions=_build_system_prompt(_load_prompt("chat.txt")),
     )
 
     while run.status == "requires_action":
