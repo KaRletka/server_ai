@@ -1,7 +1,9 @@
+import json
 import logging
 from openai import OpenAI
 from app.core.config import settings
 from app.models.schemas import BaseCredentials
+from app.tools.executor import dispatch
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,8 @@ def generate_report(raw_data: str, report_type: str) -> str:
 def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
     """
     Отправляет запрос через OpenAI Assistants API (Threads + Runs).
-    Ассистент использует vector store для file_search и сам управляет инструментами.
+    Если ассистент вызывает инструменты 1С (requires_action) — выполняем их
+    и возвращаем результаты обратно до получения финального ответа.
     """
     client = _get_client()
 
@@ -84,6 +87,25 @@ def answer_prompt(user_prompt: str, credentials: BaseCredentials) -> str:
         thread_id=thread.id,
         assistant_id=settings.openai_assistant_id,
     )
+
+    while run.status == "requires_action":
+        tool_outputs = []
+        for tool_call in run.required_action.submit_tool_outputs.tool_calls:
+            tool_name = tool_call.function.name
+            try:
+                arguments = json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                arguments = {}
+
+            logger.info(f"Ассистент вызвал инструмент '{tool_name}'")
+            result = dispatch(tool_name, arguments, credentials)
+            tool_outputs.append({"tool_call_id": tool_call.id, "output": result})
+
+        run = client.beta.threads.runs.submit_tool_outputs_and_poll(
+            thread_id=thread.id,
+            run_id=run.id,
+            tool_outputs=tool_outputs,
+        )
 
     if run.status != "completed":
         logger.error(f"Run завершился со статусом: {run.status}")
